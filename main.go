@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -46,5 +48,31 @@ func clearTerminal() error {
 }
 
 func main() {
+	reader := bufio.NewReader(os.Stdin)
 
+	for {
+		fmt.Print("\n请输入json字符串> ")
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			continue
+		}
+
+		input = input[:len(input)-2] // 去除换行符
+
+		if input == "clear" {
+			if err := clearTerminal(); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			continue
+		}
+
+		var data interface{}
+		err = json.Unmarshal([]byte(input), &data)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("\n生成结果如下:\n")
+		processJSON(data, "")
+	}
 }
