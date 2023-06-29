@@ -6,37 +6,45 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
+	"strconv"
 	"strings"
 )
 
-func processJSON(data interface{}, prefix string) {
+func processJSON(data interface{}, prefix string, index int, fieldOrder []string) {
 	switch v := data.(type) {
 	case map[string]interface{}:
-		for key, value := range v {
-			fullKey := fmt.Sprintf("%s%v,", prefix, key)
-			processJSON(value, fullKey)
+		for _, key := range fieldOrder {
+			if value, ok := v[key]; ok {
+				fullKey := fmt.Sprintf("%s%s,", prefix, key)
+				processJSON(value, fullKey, index, fieldOrder)
+			}
 		}
 	case []interface{}:
 		for i, item := range v {
 			fullKey := fmt.Sprintf("%s[第%d行],", prefix, i)
-			processJSON(item, fullKey)
+			processJSON(item, fullKey, i, fieldOrder)
 		}
 	default:
-		switch data.(type) {
-		case float64:
-			var str = fmt.Sprint(data)
-			if strings.Contains(str, "e+") {
-				if data.(float64) > float64(int(data.(float64))) {
-					fmt.Printf("%s%.2f\n", prefix, data) //浮点数保留两位小数
-				} else {
-					fmt.Printf("%s%d\n", prefix, int(data.(float64)))
-				}
+		printValue(prefix, data, index)
+	}
+}
+
+func printValue(prefix string, value interface{}, index int) {
+	switch v := value.(type) {
+	case float64:
+		str := fmt.Sprintf("%v", v)
+		if strings.Contains(str, "e+") {
+			if v > float64(int(v)) {
+				fmt.Printf("%s%v\n", prefix, strconv.FormatFloat(v, 'f', 2, 64))
 			} else {
-				fmt.Printf("%s%v\n", prefix, data)
+				fmt.Printf("%s%d\n", prefix, int(v))
 			}
-		default:
-			fmt.Printf("%s%v\n", prefix, data)
+		} else {
+			fmt.Printf("%s%v\n", prefix, value)
 		}
+	default:
+		fmt.Printf("%s%v\n", prefix, value)
 	}
 }
 
@@ -46,11 +54,40 @@ func clearTerminal() error {
 	return cmd.Run()
 }
 
+func getFieldOrder(data interface{}) []string {
+	fieldSet := make(map[string]bool)
+	var fieldOrder []string
+
+	var traverse func(interface{})
+	traverse = func(value interface{}) {
+		switch v := value.(type) {
+		case map[string]interface{}:
+			for key := range v {
+				fieldSet[key] = true
+				traverse(v[key])
+			}
+		case []interface{}:
+			for _, item := range v {
+				traverse(item)
+			}
+		}
+	}
+
+	traverse(data)
+
+	for key := range fieldSet {
+		fieldOrder = append(fieldOrder, key)
+	}
+
+	sort.Strings(fieldOrder)
+	return fieldOrder
+}
+
 func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
-		fmt.Print("\n请输入json字符串> ")
+		fmt.Print("\n请输入 JSON 字符串> ")
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
@@ -69,9 +106,26 @@ func main() {
 		var data interface{}
 		err = json.Unmarshal([]byte(input), &data)
 		if err != nil {
-			panic(err)
+			fmt.Fprintln(os.Stderr, "解析 JSON 数据失败:", err)
+			continue
 		}
-		fmt.Println("\n生成结果如下:\n")
-		processJSON(data, "")
+
+		fieldOrder := getFieldOrder(data)
+
+		// 将 HEAD 字段移到第一个位置
+		headIndex := -1
+		for i, field := range fieldOrder {
+			if field == "HEAD" {
+				headIndex = i
+				break
+			}
+		}
+		if headIndex > 0 {
+			fieldOrder[0], fieldOrder[headIndex] = fieldOrder[headIndex], fieldOrder[0]
+		}
+
+		processJSON(data, "", -1, fieldOrder)
+
+		fmt.Println("===================================")
 	}
 }
