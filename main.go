@@ -31,16 +31,15 @@ func processJSON(data interface{}, prefix string) {
 				} else {
 					fmt.Printf("%s%d\n", prefix, int(data.(float64)))
 				}
-
 			} else {
 				fmt.Printf("%s%v\n", prefix, data)
 			}
 		default:
 			fmt.Printf("%s%v\n", prefix, data)
 		}
-
 	}
 }
+
 func clearTerminal() error {
 	cmd := exec.Command("cmd", "/c", "cls") // 或者 "cls"（Windows 系统）
 	cmd.Stdout = os.Stdout
