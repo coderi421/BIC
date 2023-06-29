@@ -27,7 +27,7 @@ func processJSON(data interface{}, prefix string) {
 			var str = fmt.Sprint(data)
 			if strings.Contains(str, "e+") {
 				if data.(float64) > float64(int(data.(float64))) {
-					fmt.Printf("%s%.2f\n", prefix, data)
+					fmt.Printf("%s%.2f\n", prefix, data) //浮点数保留两位小数
 				} else {
 					fmt.Printf("%s%d\n", prefix, int(data.(float64)))
 				}
